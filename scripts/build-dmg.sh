@@ -55,5 +55,10 @@ if [ ! -L "$MNT/Applications" ]; then
 fi
 hdiutil detach "$MNT" -quiet
 
-shasum -a 256 "$OUT" | tee "$OUT.sha256"
+# Recorded as a bare filename, not a path. `shasum -a 256 "$OUT"` writes the
+# absolute path it was built at, so the file published beside a release would
+# name /Users/runner/work/... and `shasum -c` would fail for everyone who
+# downloaded it — the one command the checksum exists to support.
+( cd "$(dirname "$OUT")" && shasum -a 256 "$(basename "$OUT")" > "$(basename "$OUT").sha256" )
+cat "$OUT.sha256"
 echo "→ $(basename "$OUT")"
