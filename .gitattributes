@@ -1,0 +1,17 @@
+# Scripts and the Makefile are run by bash on macOS runners and by developers on
+# whatever they have. Pin LF so a stray CRLF never turns into
+# `/usr/bin/env: 'bash\r': No such file or directory` — a failure that names the
+# wrong thing.
+*.sh text eol=lf
+*.py text eol=lf
+Makefile text eol=lf
+*.sed text eol=lf
+*.patch text eol=lf
+*.env text eol=lf
+
+# Binary assets, so git never tries to translate them.
+*.png binary
+*.icns binary
+*.tiff binary
+*.jpg binary
+*.dmg binary

@@ -1,0 +1,188 @@
+# Build the ZTARC macOS client and, on a tag, publish it.
+#
+# Everything here calls scripts/. The same scripts run locally, because two
+# copies of a build drift and one cannot. What this job adds over `make build` is
+# a clean machine, the tag/version agreement check, and `xcodebuild -list` as an
+# independent parse of the project file our own OpenStep emitter wrote.
+name: dmg
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # Pinned, not macos-latest: the image moves, and this one is verified to
+    # carry the Xcode we need.
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # upstream/ is the whole source; without it there is nothing to brand.
+          submodules: true
+
+      # macos-15 ships several Xcodes and DEFAULTS TO 16.4, which cannot open an
+      # objectVersion 77 project. This pin is load-bearing, not hygiene.
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.2"
+
+      - uses: actions/setup-go@v5
+        with:
+          # Taken from upstream so a Go bump there flows through here, rather
+          # than being a version written down twice.
+          go-version-file: upstream/PangolinGo/go.mod
+          cache: false
+
+      # Upstream's Makefile rsyncs an entire GOROOT and patches it so Go's
+      # monotonic clock survives sleep. That is ~1GB and the slowest step in the
+      # build. The diff is in the key because the cache holds a PATCHED toolchain
+      # and the .prepared stamp means a restored cache is never re-patched.
+      - uses: actions/cache@v4
+        with:
+          path: .cache/go
+          key: goroot-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('upstream/PangolinGo/go.mod', 'upstream/PangolinGo/goruntime-boottime-over-monotonic.diff') }}
+
+      - uses: actions/cache@v4
+        with:
+          path: .cache/spm
+          key: spm-${{ runner.os }}-${{ hashFiles('brand/rules.sed') }}
+
+      - name: Stage and brand
+        run: ./scripts/rebrand.sh
+
+      # The gate, not a formality. A sed rule that stops matching after an
+      # upstream bump leaves no upstream name behind to find, so the tree would
+      # compile, still say ZTARC everywhere, and silently lose the change.
+      - name: Brand audit
+        run: ./scripts/audit-brand.sh
+
+      # scripts/strip-ios.py rewrites project.pbxproj with our own OpenStep
+      # emitter. audit-brand.sh proves it still parses as a property list; this
+      # proves Xcode itself accepts it, which is the only opinion that counts.
+      # Two seconds, and it runs before anything expensive.
+      - name: Xcode accepts the project
+        run: |
+          set -euo pipefail
+          xcodebuild -project build/src/ZTARC.xcodeproj -list -json | tee /tmp/list.json
+          python3 - <<'PY'
+          import json, sys
+          p = json.load(open("/tmp/list.json"))["project"]
+          if sorted(p["targets"]) != ["PacketTunnel", "ZTARC"]:
+              sys.exit("unexpected targets: %s" % p["targets"])
+          if sorted(p["schemes"]) != ["PacketTunnel", "ZTARC"]:
+              sys.exit("unexpected schemes: %s" % p["schemes"])
+          print("project parses; targets and schemes are as expected")
+          PY
+
+      # A release whose page, filename and Info.plist state three different
+      # numbers is worse than no release, and the version already lives in
+      # exactly one file.
+      - name: Tag agrees with brand/version.env
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          declared="$(. ./scripts/version.sh && ztarc_version)"
+          tagged="${GITHUB_REF_NAME#v}"
+          if [ "$declared" != "$tagged" ]; then
+            echo "Tag $GITHUB_REF_NAME says $tagged, brand/version.env says $declared." >&2
+            echo "Bump BUILD in brand/version.env, or tag the version in the tree." >&2
+            exit 1
+          fi
+
+      # The submodule pin and the version we claim to be based on must agree, or
+      # the release notes tell users the wrong upstream to go read.
+      - name: Submodule pin agrees with brand/version.env
+        run: |
+          set -euo pipefail
+          declared="$(. ./scripts/version.sh && ztarc_upstream_version)"
+          pinned="$(git -C upstream describe --tags --always)"
+          if [ "$pinned" != "mac-$declared" ]; then
+            echo "upstream/ is at $pinned but brand/version.env claims mac-$declared." >&2
+            exit 1
+          fi
+
+      - name: Build the app
+        run: ./scripts/build-app.sh
+
+      - name: Build the disk image
+        run: ./scripts/build-dmg.sh
+
+      - name: Summary
+        run: |
+          set -euo pipefail
+          version="$(. ./scripts/version.sh && ztarc_version)"
+          {
+            echo "## ZTARC $version"
+            echo '```'
+            ls -la build/*.dmg build/*.sha256
+            echo
+            cat build/*.sha256
+            echo
+            codesign -dv --entitlements - build/ZTARC.app 2>&1 | head -30 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ztarc-macos
+          path: |
+            build/*.dmg
+            build/*.sha256
+          if-no-files-found: error
+
+      # `gh` rather than a third-party action: this is the step that hands a
+      # binary to other people, and it is not the place to add a supply-chain
+      # dependency for convenience.
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(. ./scripts/version.sh && ztarc_version)"
+          upstream_sha="$(git -C upstream rev-parse HEAD)"
+          cat > notes.md <<EOF
+          ## ZTARC $version
+
+          Download the disk image, open it, and drag ZTARC to Applications.
+
+          **This build is not signed or notarized.** Gatekeeper will refuse to
+          open it on a first double click; right-click the app and choose Open,
+          or clear the quarantine flag with
+          \`xattr -dr com.apple.quarantine /Applications/ZTARC.app\`.
+
+          **The tunnel does not work in this build.** macOS will not load a
+          system extension that is not signed with a Developer ID and granted the
+          Network Extension entitlement by Apple. The app launches and the
+          interface is complete; connecting is not yet possible. See the README.
+
+          Verify the download:
+
+          \`\`\`
+          shasum -a 256 ztarc-$version.dmg
+          \`\`\`
+
+          $(cat build/*.sha256)
+
+          ### Source
+
+          This is a modified version of the Pangolin client for Apple devices
+          (https://github.com/fosrl/apple), licensed under AGPL-3. The complete
+          corresponding source is this repository at \`${GITHUB_SHA}\`, which
+          pins upstream at \`${upstream_sha}\` and carries every modification as
+          a patch, a substitution rule or a replacement file. See NOTICE for what
+          was changed and why.
+          EOF
+          gh release create "$GITHUB_REF_NAME" \
+            --title "ZTARC $version" \
+            --notes-file notes.md \
+            build/ztarc-$version.dmg \
+            build/ztarc-$version.dmg.sha256

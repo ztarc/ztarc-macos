@@ -1,0 +1,162 @@
+Replace the legal links with a source-code link.
+
+Four places in one patch, because they are one change: everywhere the client
+pointed at the upstream vendor's Terms of Service and Privacy Policy, it now
+points at our source, or says nothing.
+
+  - the About tab's "Legal" section becomes a "Licensing" section
+  - the tray menu's two legal entries become one Source Code entry
+  - onboarding's "By continuing, you agree to our Terms of Service and Privacy
+    Policy." line is removed outright
+  - the same sentence on the login window's hosting-selection page goes with it
+
+Why the links go
+----------------
+Those pages belong to the upstream vendor and describe their hosted service and
+their handling of your data. Neither statement is ours to make, and ZTARC has no
+equivalent page yet, so brand/rules.sed would have pointed both at the marketing
+site — menu entries that promise a legal document and deliver a home page. The
+two consent lines are worse than that: they ask the user to agree to terms that
+do not exist, and record their agreement to nothing. Removing them is the honest
+option until the pages exist. Re-add them here, not in the sed rules, on the day
+they do.
+
+Why a source link takes their place
+-----------------------------------
+The upstream client is AGPL-3. Section 13 obliges anyone conveying a modified
+version to offer its users the corresponding source, and the About tab and tray
+menu are where a user would look. Deleting the only sections that carried legal
+information without putting this in their place would leave the app with nowhere
+to make that offer.
+
+This is a patch rather than a sed rule because it is structural: it removes the
+contents of SwiftUI Sections, an AttributedString builder and an HStack,
+rewrites a section header, and no string substitution can express any of that.
+scripts/audit-brand.sh asserts both halves — that the link is present, and that
+the removed titles are absent — because a patch that stops applying leaves no
+upstream name behind for the forbidden-word scan to catch. ztarc-windows shipped
+a release exactly that way once; see its commit e13e448.
+
+diff --git a/Pangolin/macOS/UI/LoginView.swift b/Pangolin/macOS/UI/LoginView.swift
+index 0af8eda..19d98b7 100644
+--- a/Pangolin/macOS/UI/LoginView.swift
++++ b/Pangolin/macOS/UI/LoginView.swift
+@@ -95,29 +95,6 @@ struct LoginView: View {
+                 VStack {
+                     Spacer()
+ 
+-                    // Terms and Privacy Policy text (only on hosting selection page)
+-                    if hostingOption == nil {
+-                        HStack(spacing: 4) {
+-                            Text("By continuing, you agree to our")
+-                                .font(.caption2)
+-                                .foregroundColor(.secondary)
+-                            Button("Terms of Service") {
+-                                openBrowser(url: "https://pangolin.net/tos")
+-                            }
+-                            .font(.caption2)
+-                            .buttonStyle(.plain)
+-                            Text("and")
+-                                .font(.caption2)
+-                                .foregroundColor(.secondary)
+-                            Button("Privacy Policy.") {
+-                                openBrowser(url: "https://pangolin.net/privacy")
+-                            }
+-                            .font(.caption2)
+-                            .buttonStyle(.plain)
+-                        }
+-                        .padding(.bottom, 8)
+-                    }
+-
+                     HStack {
+                         Spacer()
+ 
+diff --git a/Pangolin/macOS/UI/MenuBarView.swift b/Pangolin/macOS/UI/MenuBarView.swift
+index 7af81d1..50b74bd 100644
+--- a/Pangolin/macOS/UI/MenuBarView.swift
++++ b/Pangolin/macOS/UI/MenuBarView.swift
+@@ -136,12 +136,8 @@ struct MenuBarView: View {
+                 Text("© \(String(Calendar.current.component(.year, from: Date()))) Fossorial, Inc.")
+                     .foregroundColor(.secondary)
+ 
+-                Button("Terms of Service") {
+-                    openURL("https://pangolin.net/tos")
+-                }
+-
+-                Button("Privacy Policy") {
+-                    openURL("https://pangolin.net/privacy")
++                Button("Source Code") {
++                    openURL("https://github.com/ztarc/ztarc-macos")
+                 }
+ 
+                 Divider()
+diff --git a/Pangolin/macOS/UI/OnboardingFlowView.swift b/Pangolin/macOS/UI/OnboardingFlowView.swift
+index 47ce84d..2675d1f 100644
+--- a/Pangolin/macOS/UI/OnboardingFlowView.swift
++++ b/Pangolin/macOS/UI/OnboardingFlowView.swift
+@@ -429,28 +429,6 @@ private struct MacOnboardingPrivacyPageContent: View {
+ 
+             Spacer()
+ 
+-            if let termsURL = URL(string: "https://pangolin.net/tos"),
+-               let privacyURL = URL(string: "https://pangolin.net/privacy") {
+-                let attributed: AttributedString = {
+-                    var string = AttributedString(
+-                        "By continuing, you agree to our Terms of Service and Privacy Policy."
+-                    )
+-                    if let range = string.range(of: "Terms of Service") {
+-                        string[range].link = termsURL
+-                    }
+-                    if let range = string.range(of: "Privacy Policy") {
+-                        string[range].link = privacyURL
+-                    }
+-                    return string
+-                }()
+-
+-                Text(attributed)
+-                    .font(.caption)
+-                    .foregroundColor(.secondary)
+-                    .multilineTextAlignment(.center)
+-                    .padding(.horizontal)
+-                    .padding(.top, 8)
+-            }
+             Spacer().frame(minHeight: 16)
+         }
+     }
+diff --git a/Pangolin/macOS/UI/Preferences/AboutContentView.swift b/Pangolin/macOS/UI/Preferences/AboutContentView.swift
+index 00ace9f..cdcb9a2 100644
+--- a/Pangolin/macOS/UI/Preferences/AboutContentView.swift
++++ b/Pangolin/macOS/UI/Preferences/AboutContentView.swift
+@@ -70,21 +70,9 @@ struct AboutContentView: View {
+                     }
+                     
+                     Section {
+-                        Link(destination: URL(string: "https://pangolin.net/tos")!) {
++                        Link(destination: URL(string: "https://github.com/ztarc/ztarc-macos")!) {
+                             HStack {
+-                                Text("Terms of Service")
+-                                    .font(.system(size: 13))
+-                                Spacer()
+-                                Image(systemName: "arrow.up.forward")
+-                                    .font(.system(size: 11))
+-                                    .foregroundColor(.secondary)
+-                            }
+-                        }
+-                        .foregroundColor(.accentColor)
+-                        
+-                        Link(destination: URL(string: "https://pangolin.net/privacy")!) {
+-                            HStack {
+-                                Text("Privacy Policy")
++                                Text("Source Code")
+                                     .font(.system(size: 13))
+                                 Spacer()
+                                 Image(systemName: "arrow.up.forward")
+@@ -94,7 +82,7 @@ struct AboutContentView: View {
+                         }
+                         .foregroundColor(.accentColor)
+                     } header: {
+-                        Text("Legal")
++                        Text("Licensing")
+                     }
+                 }
+                 .formStyle(.grouped)

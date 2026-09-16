@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	The macOS app's Info.plist, ours outright rather than sed'd, because what
+	matters here is what is ABSENT and a substitution cannot assert an absence.
+
+	Upstream ships four Sparkle keys — a feed URL, the update-signing public key,
+	and two XPC service toggles. All four are removed.
+
+	The feed is a host we do not control and the key is not ours, so shipping
+	them would mean only their holder can sign updates this app accepts, and that
+	they could ship one into every ZTARC install. Renaming rather than removing
+	makes it worse, not better: brand/rules.sed rewrites that URL into a domain
+	nobody owns, which is a live NXDOMAIN poll in front of every user, still
+	paired with someone else's signing key. The two XPC toggles go with them;
+	with the updater stopped they only embed helper executables nothing launches.
+
+	To turn auto-update back on, all in one sitting:
+	  1. `generate_keys` from the Sparkle distribution — the private key goes in
+	     a CI secret and never into this repository;
+	  2. put SUPublicEDKey and an SUFeedURL you host back below;
+	  3. drop the `startingUpdater` rule from brand/rules.sed;
+	  4. drop the matching assertions from scripts/audit-brand.sh;
+	  5. publish an appcast with `generate_appcast` on release.
+	Do not do 2 without 1: an update that cannot be verified must not be applied.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© ZTARC. Licensed under AGPL-3.0. Source: https://github.com/ztarc/ztarc-macos</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ztarc</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

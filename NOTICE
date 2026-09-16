@@ -1,0 +1,78 @@
+ZTARC macOS Client
+Copyright (C) 2026 ZTARC
+
+This product is a modified version of the Pangolin client for Apple devices,
+Copyright (c) 2025 Fossorial, Inc., available at https://github.com/fosrl/apple
+and licensed under the GNU Affero General Public License, Version 3.
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See LICENSE for the full text.
+
+The corresponding source for this program, including the modifications
+described below, is published at https://github.com/ztarc/ztarc-macos. That
+repository contains no copy of the upstream sources: it pins them as a git
+submodule and carries the modifications as patches, substitution rules and
+replacement files, which is the same thing said more precisely.
+
+
+MODIFICATIONS
+-------------
+
+The upstream client was rebranded and reconfigured. No functional change was
+made to the tunnel, the protocol, or the cryptography.
+
+1.  Names and identifiers. The application name, bundle identifiers, app group,
+    mach service name, URL scheme, on-disk support directory, configuration
+    filename, keychain service and os_log subsystems were changed from the
+    upstream vendor's to ZTARC's. These are not cosmetic: sharing an app group
+    or a bundle identifier with an installed upstream client would put two
+    products in one container.
+
+2.  Artwork. The application icon, menu bar icons, logo and accent colour were
+    replaced. Two onboarding screenshots showing the upstream product were
+    removed along with the views that displayed them.
+
+3.  iOS. The two iOS targets were removed from the Xcode project. ZTARC ships a
+    macOS client.
+
+4.  Default server. The login window defaults to https://console.ztarc.io
+    instead of the upstream vendor's hosted service, which ZTARC has no access
+    to and does not operate.
+
+5.  Legal links. Links to the upstream vendor's Terms of Service and Privacy
+    Policy were removed, together with two lines asking the user to agree to
+    them. Those documents describe the upstream vendor's service and their
+    handling of user data; neither statement is ZTARC's to make. A link to this
+    program's source was added in their place, in the tray menu and the About
+    tab.
+
+6.  Automatic updates. The Sparkle updater is not started, and the update feed
+    URL and update-signing public key were removed from the application's
+    Info.plist. The feed was a host ZTARC does not control and the key was not
+    ZTARC's; leaving either in place would have meant a third party could ship
+    updates into every installation.
+
+7.  Build configuration. The upstream vendor's Apple Developer team identifier
+    and provisioning profile names were removed, and the Sparkle dependency was
+    pinned to an exact version rather than a range.
+
+
+THIRD-PARTY COMPONENTS
+----------------------
+
+The following are used by this program and are not covered by its licence.
+They are not modified, and are redistributed under their own terms.
+
+  Sparkle                 MIT                 https://sparkle-project.org
+  github.com/fosrl/olm    AGPL-3              the tunnel engine
+  github.com/fosrl/newt   AGPL-3              connection handling
+  WireGuard-go            MIT                 via olm
+  gVisor                  Apache-2.0          via olm
+
+The Go runtime is patched during the build with
+PangolinGo/goruntime-boottime-over-monotonic.diff, carried in the upstream
+repository, which makes Go's monotonic clock survive system sleep. The patch is
+applied to a private copy of GOROOT and does not modify the installed Go
+toolchain.

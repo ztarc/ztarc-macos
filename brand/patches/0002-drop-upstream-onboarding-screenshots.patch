@@ -1,0 +1,54 @@
+Drop the two onboarding screenshots, keep their instructions.
+
+AllowVPN.png and InstallNetworkExtension.png are screenshots of macOS system
+dialogs taken on a machine running the upstream client. They show "Pangolin.app",
+the bundle identifier net.pangolin.Pangolin.PacketTunnel and the upstream app
+icon — rendered as pixels, inside the image.
+
+No substitution can reach that. brand/rules.sed rewrites text; the brand audit
+greps text; both would pass while the onboarding flow shows a user another
+product's name in two full-width images. This is the one brand surface in the
+tree that tooling cannot see, which is exactly why it is called out here rather
+than left to be noticed later.
+
+Only the Image views are removed. The instructions above them are prose, sed
+rewrites them correctly, and they are the part that actually helps someone
+through the system-extension approval — the screenshots were illustration. The
+imagesets themselves are deleted from the staging tree by scripts/rebrand.sh, so
+the pixels do not travel into Assets.car either.
+
+To restore them: take the two screenshots on a machine running a signed ZTARC
+build, drop them into brand/assets/, and revert this patch. That cannot happen
+until the app is signed, because the dialogs only appear when the system
+diff --git a/Pangolin/macOS/UI/OnboardingFlowView.swift b/Pangolin/macOS/UI/OnboardingFlowView.swift
+index 2675d1f..1bd4b37 100644
+--- a/Pangolin/macOS/UI/OnboardingFlowView.swift
++++ b/Pangolin/macOS/UI/OnboardingFlowView.swift
+@@ -452,13 +452,6 @@ private struct MacOnboardingSystemExtensionPageContent: View {
+                 .multilineTextAlignment(.center)
+                 .padding(.horizontal)
+ 
+-            Image("InstallNetworkExtension")
+-                .resizable()
+-                .aspectRatio(contentMode: .fit)
+-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+-                .clipShape(RoundedRectangle(cornerRadius: 8))
+-                .padding(.vertical, 4)
+-
+             Spacer(minLength: 0)
+         }
+         .frame(maxWidth: .infinity, maxHeight: .infinity)
+@@ -554,13 +547,6 @@ private struct MacOnboardingVPNPageContent: View {
+                 .multilineTextAlignment(.center)
+                 .padding(.horizontal)
+ 
+-            Image("AllowVPN")
+-                .resizable()
+-                .aspectRatio(contentMode: .fit)
+-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+-                .clipShape(RoundedRectangle(cornerRadius: 8))
+-                .padding(.vertical, 4)
+-
+             Spacer(minLength: 0)
+         }
+         .frame(maxWidth: .infinity, maxHeight: .infinity)
