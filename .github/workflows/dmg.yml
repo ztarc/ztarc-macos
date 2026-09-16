@@ -8,13 +8,34 @@ name: dmg
 
 on:
   workflow_dispatch:
+  # Deliberately unfiltered by path. GitHub evaluates path filters on tag pushes
+  # too, so a release tag whose commit only touched documentation would be
+  # silently skipped — a release that does not happen is a far worse failure than
+  # a build that did not need to.
   push:
     branches: [main]
     tags: ["v*"]
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - LICENSE
+      - NOTICE
+      - .gitattributes
 
 permissions:
   contents: read
+
+# A macOS runner costs about ten times a Linux one per minute, and this build is
+# 6-15 minutes, so a private repository on the free plan gets roughly twenty of
+# them a month. Superseded runs are the cheapest thing to stop paying for: push
+# four times to a branch and only the last one still tells you anything.
+#
+# Grouped per ref, so one branch never cancels another. Tags are exempt: that is
+# the run that publishes a release, and killing it halfway could leave a tag with
+# artifacts uploaded and no release, or the reverse.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   build:
