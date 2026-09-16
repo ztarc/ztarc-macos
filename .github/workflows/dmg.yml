@@ -22,6 +22,9 @@ on:
       - NOTICE
       - .gitattributes
 
+# Only the release step writes anything, and only on a tag. Everything else is a
+# read, so the token stays read-only for pull requests and branch pushes; the
+# job below widens it just enough to create a release.
 permissions:
   contents: read
 
@@ -42,6 +45,8 @@ jobs:
     # Pinned, not macos-latest: the image moves, and this one is verified to
     # carry the Xcode we need.
     runs-on: macos-15
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
