@@ -34,10 +34,13 @@ note() { echo "  ✗ $1" >&2; fail=1; }
 # Two exemptions, each with its reason.
 #
 #   PangolinGo / libpangolin  the Swift module and static-library names for the
-#                             Go core. Code, not branding: renaming them means
-#                             rewriting module.modulemap, OTHER_LDFLAGS, the
-#                             upstream Makefile and two imports, for something no
-#                             user ever sees.
+#   / -lpangolin               Go core. Code, not branding: renaming them means
+#                             rewriting module.modulemap, the upstream Makefile
+#                             and two imports, for something no user ever sees.
+#                             -lpangolin is listed separately because a linker
+#                             flag carries the "lib" prefix implicitly, so it is
+#                             not caught by the libpangolin exemption — the same
+#                             gap that let the rename break the link once.
 #   github.com/fosrl          the Go module path and the newt/olm dependencies.
 #                             Same reason.
 #   LICENSE, NOTICE           upstream's copyright notice, and our record of
@@ -52,6 +55,7 @@ hits="$(grep -rIn --binary-files=without-match -iE 'pangolin|fossorial' "$DST" 2
     | grep -v "^$DST/NOTICE.txt:" \
     | grep -v 'PangolinGo' \
     | grep -v 'libpangolin' \
+    | grep -v -- '-lpangolin' \
     | grep -v 'github\.com/fosrl')"
 if [ -n "$hits" ]; then
     note "upstream name survives in the staged tree:"
@@ -76,6 +80,7 @@ REQUIRED=(
 "$BRAND_NAME/macOS/UI/Preferences/AboutContentView.swift|Source Code|the About tab would not offer the source, which AGPL-3 obliges us to do"
 "$BRAND_NAME/Shared/ConfigManager.swift|$BRAND_CONFIG_FILE|the client would read and write the upstream client's config file"
 "$BRAND_NAME.xcodeproj/project.pbxproj|ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;|the build would look for an app icon that staging deleted, and ship with none"
+"$BRAND_NAME.xcodeproj/project.pbxproj|OTHER_LDFLAGS = \"-lpangolin\";|the Go core is built as libpangolin.a and linked by name; renaming the flag looks harmless and fails at link time with 'library not found'"
 )
 
 echo "audit  required results"

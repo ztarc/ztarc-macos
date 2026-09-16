@@ -24,6 +24,13 @@
 s|PangolinGo|@@ZTARC_GOMODULE@@|g
 s|libpangolin|@@ZTARC_GOLIB@@|g
 s|github\.com/fosrl|@@ZTARC_FOSRL@@|g
+# -lpangolin needs its own rule, and this is the whole reason: in a linker flag
+# the "lib" prefix is implicit, so -lpangolin does NOT contain the string
+# libpangolin and the rule above does not protect it. Without this, the archive
+# on disk stays libpangolin.a while the flag becomes -lztarc, and the link fails
+# with `ld: library 'ztarc' not found` — three minutes into a build, naming a
+# library nobody ever wrote. scripts/audit-brand.sh asserts the flag survives.
+s|-lpangolin|@@ZTARC_GOLDFLAG@@|g
 
 # ── URLs ──────────────────────────────────────────────────────────────────────
 # ZTARC has no hosted service, so the cloud endpoint becomes the console. The
@@ -104,4 +111,5 @@ s|pangolin|ztarc|g
 # ── Restore the protected tokens ──────────────────────────────────────────────
 s|@@ZTARC_GOMODULE@@|PangolinGo|g
 s|@@ZTARC_GOLIB@@|libpangolin|g
+s|@@ZTARC_GOLDFLAG@@|-lpangolin|g
 s|@@ZTARC_FOSRL@@|github.com/fosrl|g
